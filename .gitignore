@@ -1,0 +1,15 @@
+# Dependencies
+/vendor/
+composer.lock
+
+# IDE & System Files
+.DS_Store
+.idea
+.vscode
+*.swp
+*.swo
+.env
+
+# Craft specific
+/storage/*
+/web/cpresources/*

@@ -1,0 +1,61 @@
+{
+  "name": "ynmstudio/craft-video-dimensions-universal",
+  "description": "A Craft CMS plugin that automatically extracts and saves video dimensions after upload.",
+  "type": "craft-plugin",
+  "version": "1.0.0",
+  "keywords": [
+    "craft",
+    "cms",
+    "craftcms",
+    "craft-plugin",
+    "video",
+    "dimensions",
+    "universal",
+    "s3",
+    "local",
+    "google cloud"
+  ],
+  "support": {
+    "docs": "https://github.com/ynmstudio/craft-video-dimensions-universal/blob/main/README.md",
+    "issues": "https://github.com/ynmstudio/craft-video-dimensions-universal/issues"
+  },
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "Denis Yılmaz",
+      "homepage": "https://ynm.studio",
+      "email": "support@ynm.studio"
+    }
+  ],
+  "require": {
+    "craftcms/cms": "^5.0.0",
+    "james-heinrich/getid3": "^1.9"
+  },
+  "require-dev": {
+    "craftcms/cloud": "^2.0.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "ynmstudio\\videodimensionsuniversal\\": "src/"
+    }
+  },
+  "extra": {
+    "name": "Video Dimensions Universal",
+    "handle": "video-dimensions-universal",
+    "developer": "Yil & Mann",
+    "developerUrl": "https://ynm.studio",
+    "developerEmail": "support@ynm.studio",
+    "documentationUrl": "https://github.com/ynmstudio/craft-video-dimensions-universal/blob/main/README.md",
+    "changelogUrl": "https://raw.githubusercontent.com/ynmstudio/craft-video-dimensions-universal/main/CHANGELOG.md",
+    "components": {
+      "videoDimensionsService": "ynmstudio\\videodimensionsuniversal\\services\\VideoDimensionsService"
+    },
+    "class": "ynmstudio\\videodimensionsuniversal\\VideoDimensionsUniversal"
+  },
+  "config": {
+    "allow-plugins": {
+      "craftcms/plugin-installer": true,
+      "yiisoft/yii2-composer": true
+    }
+  }
+}
