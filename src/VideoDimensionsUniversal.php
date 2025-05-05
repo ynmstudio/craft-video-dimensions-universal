@@ -128,7 +128,7 @@ class VideoDimensionsUniversal extends Plugin
      * @param Asset $asset The video asset
      * @param Fs $filesystem The local filesystem
      * @param Volume $volume The asset volume
-     * @return array|null The getID3 analysis result
+     * @return array{width: int, height: int}|null Array with 'width' and 'height' keys, or null if dimensions couldn't be determined
      */
     protected function processLocalVideo(Asset $asset, BaseFs $filesystem, Volume $volume): ?array
     {
@@ -138,7 +138,8 @@ class VideoDimensionsUniversal extends Plugin
             $fsPath . DIRECTORY_SEPARATOR . $subPath . DIRECTORY_SEPARATOR . $asset->getPath()
         );
 
-        return $this->getID3Instance()->analyze($assetFilePath);
+        $analysis = $this->getID3Instance()->analyze($assetFilePath);
+        return $this->extractDimensions($analysis);
     }
 
     /**
