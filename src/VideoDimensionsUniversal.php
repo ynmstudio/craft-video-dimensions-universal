@@ -134,8 +134,18 @@ class VideoDimensionsUniversal extends Plugin
     {
         $fsPath = Craft::getAlias($filesystem->path);
         $subPath = Craft::getAlias($volume->subpath);
+
+        $pathComponents = [$fsPath];
+        if (!empty($subPath)) {
+            $pathComponents[] = $subPath;
+        }
+        $pathComponents[] = $asset->getPath();
+
+        // Filter out empty components and join with DIRECTORY_SEPARATOR
         $assetFilePath = FileHelper::normalizePath(
-            $fsPath . DIRECTORY_SEPARATOR . $subPath . DIRECTORY_SEPARATOR . $asset->getPath()
+            implode(DIRECTORY_SEPARATOR, array_filter($pathComponents, function ($component) {
+                return !empty($component) || $component === '0'; // Allow '0' as a valid path component
+            }))
         );
 
         $analysis = $this->getID3Instance()->analyze($assetFilePath);
@@ -158,25 +168,55 @@ class VideoDimensionsUniversal extends Plugin
         $expectedPath = $asset->getPath();
         $subPath = $asset->getVolume()->subpath ?? '';
         if ($subPath && strpos($expectedPath, $subPath) !== 0) {
-            $expectedPath = $subPath . '/' . $expectedPath;
+            // Ensure paths are not joined with double slashes if one already has a trailing/leading slash
+            $expectedPath = rtrim($subPath, '/') . '/' . ltrim($expectedPath, '/');
         }
 
-        $stream = $filesystem->getFileStream($expectedPath);
-        if (!$stream) {
-            throw new \Exception('Could not get file stream for ' . $expectedPath);
-        }
-        file_put_contents($tempFile, stream_get_contents($stream));
-        $analysis = $this->getID3Instance()->analyze($tempFile);
+        $sourceStream = null;
+        $tempFileHandle = null;
+        $analysis = null;
+
         try {
-            return $this->extractDimensions($analysis);
-        } finally {
-            if (file_exists($tempFile)) {
-                unlink($tempFile);
+            $sourceStream = $filesystem->getFileStream($expectedPath);
+            if (!$sourceStream) {
+                throw new \Exception('Could not get file stream for ' . $expectedPath);
             }
-            if (file_exists($tempPath)) {
+
+            $tempFileHandle = @fopen($tempFile, 'wb');
+            if ($tempFileHandle === false) {
+                throw new \Exception('Could not open temporary file for writing: ' . $tempFile);
+            }
+
+            while (!feof($sourceStream)) {
+                $chunk = @fread($sourceStream, 8192); // Read in 8KB chunks
+                if ($chunk === false) {
+                    throw new \Exception('Error reading from stream for ' . $expectedPath);
+                }
+                if (@fwrite($tempFileHandle, $chunk) === false) {
+                    throw new \Exception('Error writing to temporary file: ' . $tempFile);
+                }
+            }
+
+            // getID3 analyze can take a file path
+            $analysisResult = $this->getID3Instance()->analyze($tempFile);
+            $analysis = $this->extractDimensions($analysisResult);
+        } finally {
+            if ($sourceStream) {
+                @fclose($sourceStream);
+            }
+            if ($tempFileHandle) {
+                @fclose($tempFileHandle);
+            }
+            // Clean up temporary file and directory
+            if (file_exists($tempFile)) {
+                @unlink($tempFile);
+            }
+            if (is_dir($tempPath) && strpos(realpath($tempPath), realpath(Craft::$app->getPath()->getTempPath())) === 0) {
+                // Basic check to ensure we are deleting a subdir of temp path
                 \craft\helpers\FileHelper::removeDirectory($tempPath);
             }
         }
+        return $analysis;
     }
 
     /**
