@@ -133,8 +133,8 @@ class VideoDimensionsUniversal extends Plugin
      */
     protected function processLocalVideo(Asset $asset, BaseFs $filesystem, Volume $volume): ?array
     {
-        $fsPath = Craft::getAlias(App::parseEnv($filesystem->path));
-        $subPath = Craft::getAlias(App::parseEnv($volume->subpath));
+        $fsPath = App::parseEnv($filesystem->path);
+        $subPath = App::parseEnv($volume->subpath);
         $assetFilePath = FileHelper::normalizePath(
             $fsPath . DIRECTORY_SEPARATOR . $subPath . DIRECTORY_SEPARATOR . $asset->getPath()
         );
@@ -157,7 +157,7 @@ class VideoDimensionsUniversal extends Plugin
 
         // NOTE: In this Craft Cloud setup, the subpath must be prepended to the asset path for getFileStream to work correctly.
         $expectedPath = $asset->getPath();
-        $subPath = Craft::getAlias(App::parseEnv($asset->getVolume()->subpath ?? ''));
+        $subPath = App::parseEnv($asset->getVolume()->subpath ?? '');
         if ($subPath && strpos($expectedPath, $subPath) !== 0) {
             $expectedPath = $subPath . '/' . $expectedPath;
         }
