@@ -2,7 +2,7 @@
   "name": "ynmstudio/craft-video-dimensions-universal",
   "description": "A Craft CMS plugin that automatically extracts and saves video dimensions after upload.",
   "type": "craft-plugin",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "keywords": [
     "craft",
     "cms",
