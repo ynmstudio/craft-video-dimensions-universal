@@ -192,10 +192,17 @@ class VideoDimensionsUniversal extends Plugin
             return null;
         }
 
+        Craft::debug(
+            Craft::t(
+                'video-dimensions-universal',
+                $file
+            ),
+            __METHOD__
+        );
+
         return [
-            'width' => ($file['video']['pixel_aspect_ratio'] ?? 1),
-            'height' => $file['video']['resolution_y'],
-            'pixel_aspect_ratio' => $file['video']['pixel_aspect_ratio'] ?? 1
+            'width' => $file['video']['resolution_x'],
+            'height' => $file['video']['resolution_y']
         ];
     }
 
