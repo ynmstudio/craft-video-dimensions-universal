@@ -6,6 +6,14 @@
 
 - Add missing call to extract video dimensions for local video files
 
+## 1.0.2 - 2025-05-07
+
+### Fixed
+
+- Parse environment variables for local filesystem paths
+- Parse environment variables for streamed video paths
+
+
 ## 1.0.0 - 2025-05-01
 
 ### Added
