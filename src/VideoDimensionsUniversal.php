@@ -184,7 +184,7 @@ class VideoDimensionsUniversal extends Plugin
      * Extract width and height from getID3 analysis result.
      *
      * @param array $file The getID3 analysis result
-     * @return array{width: int, height: int, pixel_aspect_ratio: float}|null The extracted dimensions, or null if not found
+     * @return array{width: int, height: int}|null The extracted dimensions, or null if not found
      */
     protected function extractDimensions(array $file): ?array
     {
@@ -193,9 +193,9 @@ class VideoDimensionsUniversal extends Plugin
         }
 
         return [
-            'width' => $file['video']['resolution_x'],
+            'width' => ($file['video']['pixel_aspect_ratio'] ?? 1),
             'height' => $file['video']['resolution_y'],
-            'pixel_aspect_ratio' => $file['video']['pixel_aspect_ratio']
+            'pixel_aspect_ratio' => $file['video']['pixel_aspect_ratio'] ?? 1
         ];
     }
 
@@ -210,7 +210,7 @@ class VideoDimensionsUniversal extends Plugin
     {
         $assetRecord = AssetRecord::findOne($asset->id);
         if ($assetRecord) {
-            $assetRecord->width = $dimensions['width'] * ($dimensions['pixel_aspect_ratio'] ?? 1);
+            $assetRecord->width = $dimensions['width'];
             $assetRecord->height = $dimensions['height'];
             $assetRecord->save(true);
         }
