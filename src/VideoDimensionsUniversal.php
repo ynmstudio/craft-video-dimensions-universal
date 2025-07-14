@@ -192,11 +192,8 @@ class VideoDimensionsUniversal extends Plugin
             return null;
         }
 
-        Craft::debug(
-            Craft::t(
-                'video-dimensions-universal',
-                $file
-            ),
+        Craft::info(
+            $file,
             __METHOD__
         );
 
