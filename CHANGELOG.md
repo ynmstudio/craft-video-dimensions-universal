@@ -4,8 +4,10 @@
 
 ### Fixed
 
-- Parse environment variables for local filesystem paths
-- Parse environment variables for streamed video paths
+- Parse environment variables for local filesystem paths ([#1])
+- Parse environment variables for streamed video paths ([#1])
+
+[#1]: https://github.com/ynmstudio/craft-video-dimensions-universal/issues/1
 
 ## 1.0.1 - 2025-05-05
 
