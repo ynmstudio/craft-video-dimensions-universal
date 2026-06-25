@@ -1,10 +1,10 @@
-# Universal Video Dimensions plugin for Craft CMS 5.x
+# Universal Video Dimensions plugin for Craft CMS 4.x & 5.x
 
 This plugin automatically extracts and saves video dimensions after uploading video files in Craft CMS. It supports both local files and files hosted on S3 or other remote filesystems.
 
 ## Requirements
 
-- Craft CMS 5.0.0 or later
+- Craft CMS 4.0.0 or later (Craft 4 and 5 are both supported)
 - PHP 8.0.2 or later
 
 ## Installation
