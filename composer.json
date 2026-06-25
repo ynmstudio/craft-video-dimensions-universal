@@ -32,7 +32,7 @@
     "james-heinrich/getid3": "^1.9"
   },
   "require-dev": {
-    "craftcms/cloud": "^2.0.0"
+    "craftcms/cloud": "^2.0.0 || ^3.0.0"
   },
   "autoload": {
     "psr-4": {
