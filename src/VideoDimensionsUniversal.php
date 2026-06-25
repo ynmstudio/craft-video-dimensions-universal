@@ -134,7 +134,8 @@ class VideoDimensionsUniversal extends Plugin
     protected function processLocalVideo(Asset $asset, BaseFs $filesystem, Volume $volume): ?array
     {
         $fsPath = App::parseEnv($filesystem->path);
-        $subPath = App::parseEnv($volume->subpath);
+        // `Volume::$subpath` only exists in Craft 5; fall back to '' on Craft 4 (handled via Yii's __isset).
+        $subPath = App::parseEnv($volume->subpath ?? '');
         $assetFilePath = FileHelper::normalizePath(
             $fsPath . DIRECTORY_SEPARATOR . $subPath . DIRECTORY_SEPARATOR . $asset->getPath()
         );
