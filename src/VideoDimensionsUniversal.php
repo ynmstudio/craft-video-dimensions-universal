@@ -3,9 +3,11 @@
 namespace ynmstudio\videodimensionsuniversal;
 
 use Craft;
+use craft\base\Model;
 use craft\base\Plugin;
 use craft\elements\Asset;
 use craft\events\ModelEvent;
+use craft\fields\Number as NumberField;
 use craft\helpers\FileHelper;
 use craft\helpers\App;
 use craft\records\Asset as AssetRecord;
@@ -13,6 +15,7 @@ use craft\models\Volume;
 use craft\base\Fs as BaseFs;
 use craft\cloud\fs\Fs as CloudFs;
 use yii\base\Event;
+use ynmstudio\videodimensionsuniversal\models\Settings;
 use getID3;
 
 /**
@@ -23,6 +26,8 @@ use getID3;
  *
  * - For local filesystems, it reads the file directly from disk.
  * - For remote/cloud filesystems (including Craft Cloud), it streams the file to a temp location for analysis.
+ * - If the asset's field layout contains a Number field with the configured handle
+ *   (`vduVideoDuration` by default), the video duration in seconds is stored there as well.
  *
  * Uses getID3 for video analysis.
  *
@@ -41,6 +46,12 @@ class VideoDimensionsUniversal extends Plugin
      * @var getID3|null The getID3 instance (for video analysis)
      */
     protected ?getID3 $getID3 = null;
+
+    /**
+     * @var array<int, bool> IDs of assets currently being re-saved by this plugin,
+     * used to skip the save events those re-saves trigger
+     */
+    private array $internalSaveAssetIds = [];
 
     /**
      * Initialize the plugin and register event listeners.
@@ -79,7 +90,18 @@ class VideoDimensionsUniversal extends Plugin
     }
 
     /**
-     * Handle asset save event. If the asset is a video, extract and store its dimensions.
+     * Create the plugin settings model.
+     *
+     * @return Model|null
+     */
+    protected function createSettingsModel(): ?Model
+    {
+        return new Settings();
+    }
+
+    /**
+     * Handle asset save event. If the asset is a video, extract and store its
+     * dimensions and (if a matching custom field exists) its duration.
      *
      * @param ModelEvent $event
      * @return void
@@ -92,21 +114,28 @@ class VideoDimensionsUniversal extends Plugin
             return;
         }
 
+        // Skip saves triggered by this plugin itself and multi-site propagation
+        // re-saves — both would re-download and re-analyze the same file.
+        if (isset($this->internalSaveAssetIds[$asset->id]) || $asset->propagating) {
+            return;
+        }
+
         try {
-            $dimensions = $this->processVideoAsset($asset);
-            if ($dimensions) {
-                $this->updateAssetDimensions($asset, $dimensions);
+            $metadata = $this->processVideoAsset($asset);
+            if ($metadata) {
+                $this->updateAssetDimensions($asset, $metadata);
+                $this->updateVideoDuration($asset, $metadata);
             }
         } catch (\Throwable $e) {
-            Craft::error('Error processing video dimensions: ' . $e->getMessage(), __METHOD__);
+            Craft::error('Error processing video metadata: ' . $e->getMessage(), __METHOD__);
         }
     }
 
     /**
-     * Process a video asset and return its dimensions.
+     * Process a video asset and return its metadata.
      *
      * @param Asset $asset The video asset to process
-     * @return array{width: int, height: int}|null Array with 'width' and 'height' keys, or null if dimensions couldn't be determined
+     * @return array{width: int, height: int, duration: float|null}|null The extracted metadata, or null if dimensions couldn't be determined
      * @throws \Exception
      */
     protected function processVideoAsset(Asset $asset): ?array
@@ -124,12 +153,12 @@ class VideoDimensionsUniversal extends Plugin
     }
 
     /**
-     * Process a locally stored video asset and return its dimensions.
+     * Process a locally stored video asset and return its metadata.
      *
      * @param Asset $asset The video asset
      * @param Fs $filesystem The local filesystem
      * @param Volume $volume The asset volume
-     * @return array{width: int, height: int}|null Array with 'width' and 'height' keys, or null if dimensions couldn't be determined
+     * @return array{width: int, height: int, duration: float|null}|null The extracted metadata, or null if dimensions couldn't be determined
      */
     protected function processLocalVideo(Asset $asset, BaseFs $filesystem, Volume $volume): ?array
     {
@@ -141,15 +170,15 @@ class VideoDimensionsUniversal extends Plugin
         );
 
         $analysis = $this->getID3Instance()->analyze($assetFilePath);
-        return $this->extractDimensions($analysis);
+        return $this->extractVideoMetadata($analysis);
     }
 
     /**
-     * Process a streamed video asset (remote/cloud) and return its dimensions.
+     * Process a streamed video asset (remote/cloud) and return its metadata.
      *
      * @param Asset $asset The video asset
      * @param BaseFs|CloudFs $filesystem The remote/cloud filesystem
-     * @return array{width: int, height: int}|null Array with 'width' and 'height' keys, or null if dimensions couldn't be determined
+     * @return array{width: int, height: int, duration: float|null}|null The extracted metadata, or null if dimensions couldn't be determined
      */
     protected function processStreamedVideo(Asset $asset, $filesystem): ?array
     {
@@ -170,7 +199,7 @@ class VideoDimensionsUniversal extends Plugin
         file_put_contents($tempFile, stream_get_contents($stream));
         $analysis = $this->getID3Instance()->analyze($tempFile);
         try {
-            return $this->extractDimensions($analysis);
+            return $this->extractVideoMetadata($analysis);
         } finally {
             if (file_exists($tempFile)) {
                 unlink($tempFile);
@@ -182,12 +211,12 @@ class VideoDimensionsUniversal extends Plugin
     }
 
     /**
-     * Extract width and height from getID3 analysis result.
+     * Extract width, height and duration from getID3 analysis result.
      *
      * @param array $file The getID3 analysis result
-     * @return array{width: int, height: int}|null The extracted dimensions, or null if not found
+     * @return array{width: int, height: int, duration: float|null}|null The extracted metadata, or null if dimensions were not found
      */
-    protected function extractDimensions(array $file): ?array
+    protected function extractVideoMetadata(array $file): ?array
     {
         if (!isset($file['video']['resolution_x'], $file['video']['resolution_y'])) {
             return null;
@@ -195,7 +224,8 @@ class VideoDimensionsUniversal extends Plugin
 
         return [
             'width' => $file['video']['resolution_x'],
-            'height' => $file['video']['resolution_y']
+            'height' => $file['video']['resolution_y'],
+            'duration' => isset($file['playtime_seconds']) ? (float)$file['playtime_seconds'] : null,
         ];
     }
 
@@ -213,6 +243,62 @@ class VideoDimensionsUniversal extends Plugin
             $assetRecord->width = $dimensions['width'];
             $assetRecord->height = $dimensions['height'];
             $assetRecord->save(true);
+        }
+    }
+
+    /**
+     * Store the video duration in the asset's custom duration field, if the
+     * field layout has one. Skips silently when the field doesn't exist, so the
+     * feature stays zero-config and optional.
+     *
+     * @param Asset $asset The asset to update
+     * @param array{width: int, height: int, duration: float|null} $metadata The extracted metadata
+     * @return void
+     */
+    protected function updateVideoDuration(Asset $asset, array $metadata): void
+    {
+        $duration = $metadata['duration'];
+        if ($duration === null) {
+            return;
+        }
+
+        /** @var Settings $settings */
+        $settings = $this->getSettings();
+        $fieldHandle = $settings->durationFieldHandle;
+        $field = $asset->getFieldLayout()?->getFieldByHandle($fieldHandle);
+        if (!$field) {
+            return;
+        }
+
+        // Number fields serialize at their configured precision — compare (and
+        // store) at that precision, or low-precision fields would look changed
+        // on every save.
+        if ($field instanceof NumberField) {
+            $duration = round($duration, $field->decimals);
+        }
+
+        $currentValue = $asset->getFieldValue($fieldHandle);
+        if ($currentValue !== null && abs((float)$currentValue - $duration) < 0.000001) {
+            return;
+        }
+
+        $asset->setFieldValue($fieldHandle, $duration);
+
+        // Asset::afterSave() rewrites width/height from the element's own
+        // attributes, so sync them with what updateAssetDimensions() just stored
+        // before re-saving, or the re-save would wipe them.
+        $asset->setWidth($metadata['width']);
+        $asset->setHeight($metadata['height']);
+
+        $this->internalSaveAssetIds[$asset->id] = true;
+        try {
+            // runValidation=false: an unrelated invalid field must not block the
+            // duration write. propagate=false: when this runs inside an outer
+            // save, that save propagates this same (mutated) element to the other
+            // sites right after this listener returns.
+            Craft::$app->getElements()->saveElement($asset, false, false, false);
+        } finally {
+            unset($this->internalSaveAssetIds[$asset->id]);
         }
     }
 
