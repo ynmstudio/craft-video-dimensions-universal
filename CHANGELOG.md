@@ -1,5 +1,20 @@
 # Release Notes for Video Dimensions Universal
 
+## 1.2.0 - 2026-07-06
+
+### Added
+
+- Optional video duration storage: if the asset's field layout contains a Number field with the handle `vduVideoDuration`, the duration (in seconds, extracted in the same getID3 pass as the dimensions) is written to it. Useful for fragmented MP4 delivery (e.g. TwicPics), where browsers can't determine the total duration up front.
+- `durationFieldHandle` plugin setting to override the field handle via `config/video-dimensions-universal.php`. The default handle is plugin-scoped (`vdu` prefix) so the plugin never writes into a pre-existing field by accident.
+
+### Changed
+
+- Skip video re-analysis during multi-site propagation saves — the file was previously downloaded and analyzed once per site
+
+### Upgrade notes
+
+Existing installs are unaffected unless they add the duration field — without it, the plugin behaves exactly as before. To populate existing assets after adding the field, run `php craft resave/assets --volume=<volumeHandle>`. Note that this downloads each remote/cloud video once for analysis.
+
 ## 1.1.0 - 2026-06-25
 
 ### Added
